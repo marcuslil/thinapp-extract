@@ -18,6 +18,16 @@ TYPE_FILE = 4
 
 [INFO_TYPE_FILE_CONTENT, INFO_TYPE_DIR_CONTENT, INFO_TYPE_UNKNOWN] = range(3)
 
+for thinapp_read_block_bin in ['thinapp_read_block', 'thinapp_read_block.exe', 'thinapp_read_block.bin']:
+    thinapp_read_block_bin = os.path.join('.', thinapp_read_block_bin)
+    if os.path.isfile(thinapp_read_block_bin):
+        break
+    else:
+        thinapp_read_block_bin = None
+
+if not thinapp_read_block_bin:
+    print('Warning thin_read_block binary not found. Try compile it using gcc.')
+
 class decompressor:
     def __init__(self, source, dest_size):
         self.source = source
@@ -149,11 +159,10 @@ class ThinAppFile:
         self.name = name 
            
     def decompress(self, b, outsize):
-        a = subprocess.Popen(['./thinapp_read_block',str(len(b)+1), str(outsize)],stdout=subprocess.PIPE,stdin=subprocess.PIPE)
+        a = subprocess.Popen([thinapp_read_block_bin, str(len(b)+1), str(outsize)], stdout=subprocess.PIPE, stdin=subprocess.PIPE)
 #        out = a.communicate(input=chr(0xd7) + b)[0]
         out = a.communicate(input=b'\xd7' + b)[0]
         return out
-
         
     def read_block(self, block_nr):
         if block_nr == self.curr_block_nr:
@@ -167,11 +176,11 @@ class ThinAppFile:
         else:
             self.curr_block_type = ord(self.file.read(1))
             if self.curr_block_type == 0xd7:
-                if False:
+                if thinapp_read_block_bin:
+                    self.curr_block_data = self.decompress(self.file.read(self.block_list['source_size'][block_nr]), self.block_list['dest_size'][block_nr])
+                else:
                     d = decompressor(self.file, self.block_list['dest_size'][block_nr])
                     self.curr_block_data = d.decompress()
-                else:
-                    self.curr_block_data = self.decompress(self.file.read(self.block_list['source_size'][block_nr]), self.block_list['dest_size'][block_nr])
             else:
                 self.curr_block_data = self.file.read(self.block_list['source_size'][block_nr] - 1)
         assert len(self.curr_block_data) == self.block_list['dest_size'][block_nr], ((self.curr_block_data), self.block_list['dest_size'][block_nr], self.name, hex(self.curr_block_type))
